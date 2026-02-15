@@ -22,6 +22,6 @@ Set-Location $root
 
 dotnet publish "Membrain/Membrain.csproj" -c $Configuration -r $Runtime -p:SelfContained=true -p:PublishSingleFile=false -p:Version=$Version -o $publishDir
 
-vpk pack --packId Membrain --packVersion $Version --packDir $publishDir --mainExe Membrain.exe --packTitle "Membrain" --outputDir $releasesDir
+vpk pack --packId Membrain --packVersion $Version --packDir $publishDir --mainExe Membrain.exe --packTitle "Membrain" --icon "Membrain/assets/app.ico" --outputDir $releasesDir
 
 Write-Host "Done. Check the Releases folder in: $root"

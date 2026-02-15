@@ -2,7 +2,7 @@ namespace Membrain.Models;
 
 public sealed class AppSettings
 {
-    public string ActivationHotkey { get; set; } = "Ctrl+Shift+Space";
+    public string ActivationHotkey { get; set; } = "CapsLock+D";
     public ScreenSide ScreenSide { get; set; } = ScreenSide.Left;
     public string ScrollUpKey { get; set; } = "Up";
     public string ScrollDownKey { get; set; } = "Down";

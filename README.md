@@ -23,4 +23,12 @@ Membrain is a Windows desktop clipboard strip app.
 dotnet publish Membrain/Membrain.csproj -c Release -r win-x64 --self-contained true
 ```
 
+## Icon assets
+- Source image: `brain.png`
+- Generated assets: `Membrain/assets/app.ico`, `Membrain/assets/app-*.png`, `favicon.ico`
+- Regenerate after changing `brain.png`:
+```bash
+python3 scripts/generate_icons.py
+```
+
 See `INSTALLER.md` for Velopack packaging and release automation.

@@ -1,12 +1,15 @@
 using System.Collections.ObjectModel;
+using System.IO;
 using System.Runtime.InteropServices;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
 using System.Windows.Interop;
+using System.Windows.Media.Imaging;
 using System.Windows.Threading;
 using Membrain.Models;
 using Membrain.Services;
+using Drawing = System.Drawing;
 using Forms = System.Windows.Forms;
 using WpfButton = System.Windows.Controls.Button;
 using WpfClipboard = System.Windows.Clipboard;
@@ -30,17 +33,21 @@ public partial class MainWindow : Window
     private KeyboardHookManager? _keyboardHook;
     private HwndSource? _hwndSource;
     private Forms.NotifyIcon? _trayIcon;
+    private Drawing.Icon? _trayAppIcon;
+    private Drawing.Font? _trayMenuFont;
 
     private HotkeyDefinition _activationHotkey;
     private Key _scrollUpKey;
     private Key _scrollDownKey;
     private Key _selectKey;
+    private bool _activationUsesLowLevelHook;
 
     private bool _isShuttingDown;
     private bool _updateBusy;
     private bool _suppressNextClipboardCapture;
     private string? _suppressedClipboardText;
     private DateTimeOffset _lastOverlayInteractionUtc = DateTimeOffset.UtcNow;
+    private DateTimeOffset _lastActivationToggleUtc = DateTimeOffset.MinValue;
 
     public MainWindow()
     {
@@ -89,6 +96,7 @@ public partial class MainWindow : Window
             KeyDownHandler = HandleGlobalKeyDown
         };
 
+        ApplyWindowIcon();
         InitializeTrayIcon();
         PositionWindow();
         HideOverlay();
@@ -124,23 +132,95 @@ public partial class MainWindow : Window
             _trayIcon.Dispose();
             _trayIcon = null;
         }
+
+        _trayAppIcon?.Dispose();
+        _trayAppIcon = null;
+
+        _trayMenuFont?.Dispose();
+        _trayMenuFont = null;
     }
 
     private void InitializeTrayIcon()
     {
+        _trayAppIcon = LoadAppIcon();
+        _trayMenuFont = new Drawing.Font("Bahnschrift", 9.0f, Drawing.FontStyle.Regular, Drawing.GraphicsUnit.Point);
         _trayIcon = new Forms.NotifyIcon
         {
-            Icon = System.Drawing.SystemIcons.Application,
+            Icon = _trayAppIcon ?? Drawing.SystemIcons.Application,
             Text = "Membrain",
             Visible = true
         };
 
-        var menu = new Forms.ContextMenuStrip();
-        menu.Items.Add("Toggle", null, (_, _) => Dispatcher.Invoke(ToggleOverlay));
-        menu.Items.Add("Exit", null, (_, _) => Dispatcher.Invoke(ExitApplication));
+        var menu = new Forms.ContextMenuStrip
+        {
+            ShowImageMargin = false,
+            ShowCheckMargin = false,
+            Font = _trayMenuFont,
+            Renderer = new Forms.ToolStripProfessionalRenderer(new TrayMenuColorTable()),
+            BackColor = Drawing.Color.FromArgb(12, 20, 28),
+            ForeColor = Drawing.Color.FromArgb(237, 243, 248)
+        };
+
+        var toggleItem = new Forms.ToolStripMenuItem("Toggle")
+        {
+            ForeColor = Drawing.Color.FromArgb(237, 243, 248),
+            BackColor = Drawing.Color.Transparent
+        };
+        toggleItem.Click += (_, _) => Dispatcher.Invoke(ToggleOverlay);
+
+        var exitItem = new Forms.ToolStripMenuItem("Exit")
+        {
+            ForeColor = Drawing.Color.FromArgb(237, 243, 248),
+            BackColor = Drawing.Color.Transparent
+        };
+        exitItem.Click += (_, _) => Dispatcher.Invoke(ExitApplication);
+
+        menu.Items.Add(toggleItem);
+        menu.Items.Add(new Forms.ToolStripSeparator());
+        menu.Items.Add(exitItem);
 
         _trayIcon.ContextMenuStrip = menu;
         _trayIcon.DoubleClick += (_, _) => Dispatcher.Invoke(ToggleOverlay);
+    }
+
+    private string GetAppIconPath()
+    {
+        return Path.Combine(AppContext.BaseDirectory, "assets", "app.ico");
+    }
+
+    private Drawing.Icon? LoadAppIcon()
+    {
+        var iconPath = GetAppIconPath();
+        if (!File.Exists(iconPath))
+        {
+            return null;
+        }
+
+        try
+        {
+            return new Drawing.Icon(iconPath);
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
+    private void ApplyWindowIcon()
+    {
+        var iconPath = GetAppIconPath();
+        if (!File.Exists(iconPath))
+        {
+            return;
+        }
+
+        try
+        {
+            Icon = new BitmapImage(new Uri(iconPath, UriKind.Absolute));
+        }
+        catch
+        {
+        }
     }
 
     private void ExitApplication()
@@ -151,12 +231,23 @@ public partial class MainWindow : Window
 
     private bool HandleGlobalKeyDown(int virtualKey)
     {
+        var key = KeyInterop.KeyFromVirtualKey(virtualKey);
+        if (_activationUsesLowLevelHook && IsActivationHotkeyPressed(key))
+        {
+            var now = DateTimeOffset.UtcNow;
+            if (now - _lastActivationToggleUtc >= TimeSpan.FromMilliseconds(350))
+            {
+                _lastActivationToggleUtc = now;
+                Dispatcher.Invoke(ToggleOverlay);
+            }
+            return true;
+        }
+
         if (!IsVisible || SettingsPanel.Visibility == Visibility.Visible)
         {
             return false;
         }
 
-        var key = KeyInterop.KeyFromVirtualKey(virtualKey);
         if (key == _scrollUpKey)
         {
             Dispatcher.Invoke(SelectPreviousItem);
@@ -210,11 +301,67 @@ public partial class MainWindow : Window
         }
 
         _hotKeyManager.Unregister(ToggleHotkeyId);
+        _activationUsesLowLevelHook = _activationHotkey.Modifiers.HasFlag(HotkeyModifiers.CapsLock);
+        if (_activationUsesLowLevelHook)
+        {
+            return;
+        }
+
         var registered = _hotKeyManager.Register(ToggleHotkeyId, _activationHotkey);
         if (!registered)
         {
             SetStatus("Hotkey unavailable. Pick another combination.");
         }
+    }
+
+    private bool IsActivationHotkeyPressed(Key key)
+    {
+        if (key != _activationHotkey.Key)
+        {
+            return false;
+        }
+
+        if (_activationHotkey.Modifiers.HasFlag(HotkeyModifiers.Ctrl) && !IsAnyKeyDown(0x11))
+        {
+            return false;
+        }
+
+        if (_activationHotkey.Modifiers.HasFlag(HotkeyModifiers.Alt) && !IsAnyKeyDown(0x12))
+        {
+            return false;
+        }
+
+        if (_activationHotkey.Modifiers.HasFlag(HotkeyModifiers.Shift) && !IsAnyKeyDown(0x10))
+        {
+            return false;
+        }
+
+        if (_activationHotkey.Modifiers.HasFlag(HotkeyModifiers.Win) && !IsWinPressed())
+        {
+            return false;
+        }
+
+        if (_activationHotkey.Modifiers.HasFlag(HotkeyModifiers.CapsLock) && !IsCapsLockOn())
+        {
+            return false;
+        }
+
+        return true;
+    }
+
+    private static bool IsAnyKeyDown(int virtualKey)
+    {
+        return (GetAsyncKeyState(virtualKey) & 0x8000) != 0;
+    }
+
+    private static bool IsWinPressed()
+    {
+        return (GetAsyncKeyState(0x5B) & 0x8000) != 0 || (GetAsyncKeyState(0x5C) & 0x8000) != 0;
+    }
+
+    private static bool IsCapsLockOn()
+    {
+        return (GetKeyState(0x14) & 0x0001) == 0x0001;
     }
 
     private void CaptureClipboardText()
@@ -448,7 +595,7 @@ public partial class MainWindow : Window
             return parsed;
         }
 
-        return new HotkeyDefinition(HotkeyModifiers.Ctrl | HotkeyModifiers.Shift, Key.Space);
+        return new HotkeyDefinition(HotkeyModifiers.CapsLock, Key.D);
     }
 
     private static Key ParseSingleKey(string value, Key fallback)
@@ -484,7 +631,7 @@ public partial class MainWindow : Window
         var activation = ActivationHotkeyTextBox.Text.Trim();
         if (!HotkeyDefinition.TryParse(activation, out var newHotkey))
         {
-            SetStatus("Invalid activation hotkey. Example: Ctrl+Shift+Space");
+            SetStatus("Invalid activation hotkey. Example: CapsLock+D");
             return;
         }
 
@@ -677,4 +824,28 @@ public partial class MainWindow : Window
 
     [DllImport("user32.dll", SetLastError = true)]
     private static extern bool RemoveClipboardFormatListener(IntPtr hwnd);
+
+    [DllImport("user32.dll")]
+    private static extern short GetAsyncKeyState(int virtualKey);
+
+    [DllImport("user32.dll")]
+    private static extern short GetKeyState(int virtualKey);
+
+    private sealed class TrayMenuColorTable : Forms.ProfessionalColorTable
+    {
+        public override Drawing.Color ToolStripDropDownBackground => Drawing.Color.FromArgb(12, 20, 28);
+        public override Drawing.Color ImageMarginGradientBegin => Drawing.Color.FromArgb(12, 20, 28);
+        public override Drawing.Color ImageMarginGradientMiddle => Drawing.Color.FromArgb(12, 20, 28);
+        public override Drawing.Color ImageMarginGradientEnd => Drawing.Color.FromArgb(12, 20, 28);
+        public override Drawing.Color MenuBorder => Drawing.Color.FromArgb(48, 69, 88);
+        public override Drawing.Color MenuItemBorder => Drawing.Color.FromArgb(51, 80, 106);
+        public override Drawing.Color MenuItemSelected => Drawing.Color.FromArgb(26, 42, 55);
+        public override Drawing.Color MenuItemSelectedGradientBegin => Drawing.Color.FromArgb(26, 42, 55);
+        public override Drawing.Color MenuItemSelectedGradientEnd => Drawing.Color.FromArgb(26, 42, 55);
+        public override Drawing.Color MenuItemPressedGradientBegin => Drawing.Color.FromArgb(17, 28, 37);
+        public override Drawing.Color MenuItemPressedGradientMiddle => Drawing.Color.FromArgb(17, 28, 37);
+        public override Drawing.Color MenuItemPressedGradientEnd => Drawing.Color.FromArgb(17, 28, 37);
+        public override Drawing.Color SeparatorDark => Drawing.Color.FromArgb(48, 69, 88);
+        public override Drawing.Color SeparatorLight => Drawing.Color.FromArgb(48, 69, 88);
+    }
 }

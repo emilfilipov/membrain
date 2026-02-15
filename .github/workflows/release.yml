@@ -46,7 +46,7 @@ jobs:
         run: |
           if (-not $env:VELOPACK_TOKEN) { throw "No usable GitHub token found for Velopack upload."; }
           vpk download github --repoUrl https://github.com/${{ github.repository }} --token $env:VELOPACK_TOKEN --channel win
-          vpk pack -u Membrain -v ${{ steps.get-version.outputs.version }} -p publish --mainExe Membrain.exe --channel win
+          vpk pack -u Membrain -v ${{ steps.get-version.outputs.version }} -p publish --mainExe Membrain.exe --channel win --icon Membrain/assets/app.ico
 
           $maxAttempts = 5
           for ($attempt = 1; $attempt -le $maxAttempts; $attempt++) {

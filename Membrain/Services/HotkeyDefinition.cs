@@ -10,7 +10,8 @@ public enum HotkeyModifiers : uint
     Alt = 0x0001,
     Ctrl = 0x0002,
     Shift = 0x0004,
-    Win = 0x0008
+    Win = 0x0008,
+    CapsLock = 0x0010
 }
 
 public readonly record struct HotkeyDefinition(HotkeyModifiers Modifiers, Key Key)
@@ -22,6 +23,7 @@ public readonly record struct HotkeyDefinition(HotkeyModifiers Modifiers, Key Ke
         if (Modifiers.HasFlag(HotkeyModifiers.Alt)) parts.Add("Alt");
         if (Modifiers.HasFlag(HotkeyModifiers.Shift)) parts.Add("Shift");
         if (Modifiers.HasFlag(HotkeyModifiers.Win)) parts.Add("Win");
+        if (Modifiers.HasFlag(HotkeyModifiers.CapsLock)) parts.Add("CapsLock");
         parts.Add(Key.ToString());
         return string.Join("+", parts);
     }
@@ -64,6 +66,10 @@ public readonly record struct HotkeyDefinition(HotkeyModifiers Modifiers, Key Ke
                 case "windows":
                 case "meta":
                     modifiers |= HotkeyModifiers.Win;
+                    break;
+                case "capslock":
+                case "caps":
+                    modifiers |= HotkeyModifiers.CapsLock;
                     break;
                 default:
                     return false;

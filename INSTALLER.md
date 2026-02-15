@@ -14,6 +14,7 @@ powershell -ExecutionPolicy Bypass -File scripts/pack.ps1 -Version 1.0.0
 ```
 
 This publishes the app to `publish/` and creates a Velopack release in `Releases/`.
+The installer and packaged executable use `Membrain/assets/app.ico`.
 
 The `Releases/` folder contains:
 - `Setup.exe` (installer)
