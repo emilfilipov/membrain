@@ -1,0 +1,10 @@
+bin/
+obj/
+publish/
+Releases/
+.vs/
+*.user
+*.suo
+*.pdb
+*.cache
+*.nupkg

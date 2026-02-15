@@ -1,0 +1,60 @@
+name: Release
+
+on:
+  push:
+    branches:
+      - main
+    paths-ignore:
+      - '*.md'
+      - '**/*.md'
+      - '*.MD'
+      - '**/*.MD'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: windows-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Compute Version
+        id: get-version
+        shell: pwsh
+        run: |
+          $version = "1.0.$env:GITHUB_RUN_NUMBER"
+          "version=$version" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+
+      - name: Publish
+        run: dotnet publish Membrain/Membrain.csproj -c Release -o publish -r win-x64 --self-contained true -p:Version=${{ steps.get-version.outputs.version }}
+
+      - name: Install Velopack CLI
+        run: dotnet tool install -g vpk --version 0.0.1298
+
+      - name: Create Release (Velopack)
+        env:
+          VELOPACK_TOKEN: ${{ secrets.VELOPACK_TOKEN || secrets.velopack_token }}
+        shell: pwsh
+        run: |
+          if (-not $env:VELOPACK_TOKEN) { throw "Missing VELOPACK_TOKEN secret (expected secrets.VELOPACK_TOKEN or secrets.velopack_token)"; }
+          vpk download github --repoUrl https://github.com/${{ github.repository }} --token $env:VELOPACK_TOKEN --channel win
+          vpk pack -u Membrain -v ${{ steps.get-version.outputs.version }} -p publish --mainExe Membrain.exe --channel win
+
+          $maxAttempts = 5
+          for ($attempt = 1; $attempt -le $maxAttempts; $attempt++) {
+            Write-Host "Uploading release (attempt $attempt of $maxAttempts)..."
+            vpk upload github --repoUrl https://github.com/${{ github.repository }} --token $env:VELOPACK_TOKEN --channel win --publish --releaseName "Membrain ${{ steps.get-version.outputs.version }}" --tag v${{ steps.get-version.outputs.version }}
+            if ($LASTEXITCODE -eq 0) { break }
+            if ($attempt -eq $maxAttempts) { throw "vpk upload failed after $maxAttempts attempts." }
+            $delay = [Math]::Min(120, 5 * [Math]::Pow(2, $attempt - 1))
+            Write-Host "Upload failed. Retrying in $delay seconds..."
+            Start-Sleep -Seconds $delay
+          }
