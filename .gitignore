@@ -8,3 +8,5 @@ Releases/
 *.pdb
 *.cache
 *.nupkg
+
+__pycache__/
