@@ -5,15 +5,14 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
 using System.Windows.Interop;
-using System.Windows.Media.Imaging;
 using System.Windows.Threading;
+using System.Windows.Media.Imaging;
 using Membrain.Models;
 using Membrain.Services;
 using Drawing = System.Drawing;
 using Forms = System.Windows.Forms;
 using WpfButton = System.Windows.Controls.Button;
 using WpfClipboard = System.Windows.Clipboard;
-using WpfMessageBox = System.Windows.MessageBox;
 using WpfTextDataFormat = System.Windows.TextDataFormat;
 
 namespace Membrain;
@@ -27,6 +26,7 @@ public partial class MainWindow : Window
     private readonly ObservableCollection<ClipboardItem> _history = new();
     private readonly UpdateService _updateService = new();
     private readonly DispatcherTimer _autoHideTimer = new() { Interval = TimeSpan.FromMilliseconds(350) };
+    private readonly DispatcherTimer _backgroundUpdateTimer = new() { Interval = TimeSpan.FromHours(4) };
 
     private AppSettings _settings;
     private GlobalHotKeyManager? _hotKeyManager;
@@ -52,6 +52,7 @@ public partial class MainWindow : Window
     private string? _suppressedClipboardHash;
     private DateTimeOffset _lastOverlayInteractionUtc = DateTimeOffset.UtcNow;
     private DateTimeOffset _lastActivationToggleUtc = DateTimeOffset.MinValue;
+    private DateTimeOffset _lastSilentUpdateAttemptUtc = DateTimeOffset.MinValue;
 
     public MainWindow()
     {
@@ -81,6 +82,9 @@ public partial class MainWindow : Window
         _autoHideTimer.Tick += AutoHideTimer_Tick;
         _autoHideTimer.Start();
 
+        _backgroundUpdateTimer.Tick += async (_, _) => await CheckForUpdatesAsync(false);
+        _backgroundUpdateTimer.Start();
+
         PreviewMouseDown += (_, _) => RegisterOverlayInteraction();
         PreviewMouseMove += (_, _) => RegisterOverlayInteraction();
         PreviewKeyDown += (_, _) => RegisterOverlayInteraction();
@@ -109,6 +113,12 @@ public partial class MainWindow : Window
         InitializeTrayIcon();
         PositionWindow();
         HideOverlay();
+
+        _ = Dispatcher.InvokeAsync(async () =>
+        {
+            await Task.Delay(8000);
+            await CheckForUpdatesAsync(false);
+        });
     }
 
     private void OnClosing(object? sender, System.ComponentModel.CancelEventArgs e)
@@ -283,7 +293,8 @@ public partial class MainWindow : Window
                 return true;
             }
 
-            return false;
+            // Keep keyboard input isolated to Membrain while visible.
+            return true;
         }
 
         if (key == _scrollUpKey)
@@ -316,7 +327,8 @@ public partial class MainWindow : Window
             return true;
         }
 
-        return false;
+        // When strip is visible, swallow other keys so they do not leak to other apps.
+        return true;
     }
 
     private IntPtr WndProc(IntPtr hwnd, int msg, IntPtr wParam, IntPtr lParam, ref bool handled)
@@ -574,8 +586,7 @@ public partial class MainWindow : Window
     {
         PositionWindow();
         Show();
-        Activate();
-        Focus();
+        FocusOverlayWindow();
         RegisterOverlayInteraction();
 
         if (_history.Count > 0)
@@ -589,6 +600,22 @@ public partial class MainWindow : Window
     {
         SettingsPanel.Visibility = Visibility.Collapsed;
         Hide();
+    }
+
+    private void FocusOverlayWindow()
+    {
+        var handle = new WindowInteropHelper(this).Handle;
+        if (handle == IntPtr.Zero)
+        {
+            return;
+        }
+
+        SetForegroundWindow(handle);
+        BringWindowToTop(handle);
+        SetFocus(handle);
+        Activate();
+        Focus();
+        HistoryList.Focus();
     }
 
     private void RegisterOverlayInteraction()
@@ -980,61 +1007,71 @@ public partial class MainWindow : Window
 
     private async void CheckUpdatesButton_Click(object sender, RoutedEventArgs e)
     {
-        await CheckForUpdatesAsync();
+        await CheckForUpdatesAsync(true);
     }
 
-    private async Task CheckForUpdatesAsync()
+    private async Task CheckForUpdatesAsync(bool userInitiated)
     {
         if (_updateBusy)
         {
             return;
         }
 
-        ApplyUpdateSettingsFromUi();
+        var now = DateTimeOffset.UtcNow;
+        if (!userInitiated && now - _lastSilentUpdateAttemptUtc < TimeSpan.FromMinutes(15))
+        {
+            return;
+        }
+
+        if (userInitiated)
+        {
+            ApplyUpdateSettingsFromUi();
+        }
 
         if (!_updateService.IsConfigured || _updateService.Manager == null)
         {
-            SetUpdateStatus("Updates are not configured.");
+            if (userInitiated)
+            {
+                SetUpdateStatus("Updates are not configured.");
+            }
             return;
         }
 
         _updateBusy = true;
-        CheckUpdatesButton.IsEnabled = false;
+        _lastSilentUpdateAttemptUtc = now;
+        if (userInitiated)
+        {
+            CheckUpdatesButton.IsEnabled = false;
+        }
 
         try
         {
             var manager = _updateService.Manager;
             if (!manager.IsInstalled)
             {
-                SetUpdateStatus("Install via Setup.exe to enable updates.");
+                if (userInitiated)
+                {
+                    SetUpdateStatus("Install via Setup.exe to enable updates.");
+                }
                 return;
             }
 
             var pending = manager.UpdatePendingRestart;
             if (pending != null)
             {
-                SetUpdateStatus("Update is ready. Restart to apply.");
-                var restart = WpfMessageBox.Show(this, "An update is ready. Restart now?", "Membrain Updates", MessageBoxButton.YesNo, MessageBoxImage.Question);
-                if (restart == MessageBoxResult.Yes)
-                {
-                    manager.ApplyUpdatesAndRestart(pending, Array.Empty<string>());
-                }
+                SetUpdateStatus("Applying downloaded update...");
+                manager.ApplyUpdatesAndRestart(pending, Array.Empty<string>());
                 return;
             }
 
-            SetUpdateStatus("Checking for updates...");
+            SetUpdateStatus(userInitiated ? "Checking for updates..." : "Checking updates in background...");
             var updateInfo = await manager.CheckForUpdatesAsync();
             if (updateInfo == null)
             {
-                SetUpdateStatus("Up to date.");
-                return;
-            }
-
-            var version = updateInfo.TargetFullRelease.Version.ToString();
-            var confirm = WpfMessageBox.Show(this, $"Update {version} is available. Install now?", "Membrain Updates", MessageBoxButton.YesNo, MessageBoxImage.Question);
-            if (confirm != MessageBoxResult.Yes)
-            {
-                SetUpdateStatus($"Update available: {version}");
+                if (userInitiated)
+                {
+                    SetUpdateStatus("Up to date.");
+                }
                 return;
             }
 
@@ -1052,12 +1089,18 @@ public partial class MainWindow : Window
         }
         catch (Exception ex)
         {
-            SetUpdateStatus($"Update check failed: {ex.Message}");
+            if (userInitiated)
+            {
+                SetUpdateStatus($"Update check failed: {ex.Message}");
+            }
         }
         finally
         {
             _updateBusy = false;
-            CheckUpdatesButton.IsEnabled = true;
+            if (userInitiated)
+            {
+                CheckUpdatesButton.IsEnabled = true;
+            }
         }
     }
 
@@ -1104,6 +1147,15 @@ public partial class MainWindow : Window
 
     [DllImport("user32.dll")]
     private static extern short GetAsyncKeyState(int virtualKey);
+
+    [DllImport("user32.dll")]
+    private static extern bool SetForegroundWindow(IntPtr hWnd);
+
+    [DllImport("user32.dll")]
+    private static extern bool BringWindowToTop(IntPtr hWnd);
+
+    [DllImport("user32.dll")]
+    private static extern IntPtr SetFocus(IntPtr hWnd);
 
     private sealed class TrayMenuColorTable : Forms.ProfessionalColorTable
     {
