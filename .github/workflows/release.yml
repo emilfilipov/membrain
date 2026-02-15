@@ -41,10 +41,10 @@ jobs:
 
       - name: Create Release (Velopack)
         env:
-          VELOPACK_TOKEN: ${{ secrets.VELOPACK_TOKEN || secrets.velopack_token }}
+          VELOPACK_TOKEN: ${{ secrets.VELOPACK_TOKEN || secrets.velopack_token || github.token }}
         shell: pwsh
         run: |
-          if (-not $env:VELOPACK_TOKEN) { throw "Missing VELOPACK_TOKEN secret (expected secrets.VELOPACK_TOKEN or secrets.velopack_token)"; }
+          if (-not $env:VELOPACK_TOKEN) { throw "No usable GitHub token found for Velopack upload."; }
           vpk download github --repoUrl https://github.com/${{ github.repository }} --token $env:VELOPACK_TOKEN --channel win
           vpk pack -u Membrain -v ${{ steps.get-version.outputs.version }} -p publish --mainExe Membrain.exe --channel win
 
