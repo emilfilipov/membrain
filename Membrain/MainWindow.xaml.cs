@@ -938,8 +938,6 @@ public partial class MainWindow : Window
     {
         SettingsPanel.Visibility = Visibility.Visible;
         RegisterOverlayInteraction();
-        ActivationHotkeyTextBox.Focus();
-        ActivationHotkeyTextBox.SelectAll();
     }
 
     private void CloseSettingsPanel()
