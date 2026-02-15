@@ -7,17 +7,48 @@ public static class CredentialStore
 {
     private const uint CredTypeGeneric = 1;
     private const uint CredPersistLocalMachine = 2;
-    private const string TargetName = "Membrain.UpdateToken";
+    private const string TokenTargetName = "Membrain.UpdateToken";
+    private const string RepoTargetName = "Membrain.UpdateRepoUrl";
 
     public static void SaveToken(string? token)
     {
-        if (string.IsNullOrWhiteSpace(token))
+        SaveSecret(TokenTargetName, token);
+    }
+
+    public static string? LoadToken()
+    {
+        return LoadSecret(TokenTargetName);
+    }
+
+    public static void DeleteToken()
+    {
+        NativeMethods.CredDelete(TokenTargetName, CredTypeGeneric, 0);
+    }
+
+    public static void SaveRepoUrl(string? repoUrl)
+    {
+        SaveSecret(RepoTargetName, repoUrl);
+    }
+
+    public static string? LoadRepoUrl()
+    {
+        return LoadSecret(RepoTargetName);
+    }
+
+    public static void DeleteRepoUrl()
+    {
+        NativeMethods.CredDelete(RepoTargetName, CredTypeGeneric, 0);
+    }
+
+    private static void SaveSecret(string targetName, string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
         {
-            DeleteToken();
+            NativeMethods.CredDelete(targetName, CredTypeGeneric, 0);
             return;
         }
 
-        var bytes = Encoding.UTF8.GetBytes(token);
+        var bytes = Encoding.UTF8.GetBytes(value);
         var blobPtr = Marshal.AllocHGlobal(bytes.Length);
         try
         {
@@ -26,7 +57,7 @@ public static class CredentialStore
             var cred = new NativeCredentialWrite
             {
                 Type = CredTypeGeneric,
-                TargetName = TargetName,
+                TargetName = targetName,
                 CredentialBlobSize = (uint)bytes.Length,
                 CredentialBlob = blobPtr,
                 Persist = CredPersistLocalMachine,
@@ -35,7 +66,7 @@ public static class CredentialStore
 
             if (!NativeMethods.CredWrite(ref cred, 0))
             {
-                throw new InvalidOperationException("Failed to save token to Windows Credential Manager.");
+                throw new InvalidOperationException("Failed to save secret to Windows Credential Manager.");
             }
         }
         finally
@@ -44,9 +75,9 @@ public static class CredentialStore
         }
     }
 
-    public static string? LoadToken()
+    private static string? LoadSecret(string targetName)
     {
-        if (!NativeMethods.CredRead(TargetName, CredTypeGeneric, 0, out var credPtr))
+        if (!NativeMethods.CredRead(targetName, CredTypeGeneric, 0, out var credPtr))
         {
             return null;
         }
@@ -67,11 +98,6 @@ public static class CredentialStore
         {
             NativeMethods.CredFree(credPtr);
         }
-    }
-
-    public static void DeleteToken()
-    {
-        NativeMethods.CredDelete(TargetName, CredTypeGeneric, 0);
     }
 
     private static class NativeMethods

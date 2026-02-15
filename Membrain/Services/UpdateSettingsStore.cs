@@ -8,6 +8,7 @@ public static class UpdateSettingsStore
 {
     private sealed class StoredUpdateSettings
     {
+        // Backward-compat migration: old settings used to store repo URL in JSON.
         public string? RepoUrl { get; set; }
         public bool IncludePrerelease { get; set; }
     }
@@ -20,41 +21,44 @@ public static class UpdateSettingsStore
     public static UpdateSettings Load()
     {
         var path = AppPaths.UpdateSettingsPath;
-        if (!File.Exists(path))
-        {
-            return new UpdateSettings();
-        }
+        StoredUpdateSettings? stored = null;
 
-        try
+        if (File.Exists(path))
         {
-            var json = File.ReadAllText(path);
-            var stored = JsonSerializer.Deserialize<StoredUpdateSettings>(json);
-            if (stored == null)
+            try
             {
-                return new UpdateSettings();
+                var json = File.ReadAllText(path);
+                stored = JsonSerializer.Deserialize<StoredUpdateSettings>(json);
             }
-
-            return new UpdateSettings
+            catch
             {
-                RepoUrl = stored.RepoUrl,
-                Token = CredentialStore.LoadToken(),
-                IncludePrerelease = stored.IncludePrerelease
-            };
+                stored = null;
+            }
         }
-        catch
+
+        var repoUrl = CredentialStore.LoadRepoUrl();
+        if (string.IsNullOrWhiteSpace(repoUrl) && !string.IsNullOrWhiteSpace(stored?.RepoUrl))
         {
-            return new UpdateSettings();
+            repoUrl = stored.RepoUrl;
+            CredentialStore.SaveRepoUrl(repoUrl);
         }
+
+        return new UpdateSettings
+        {
+            RepoUrl = repoUrl,
+            Token = CredentialStore.LoadToken(),
+            IncludePrerelease = stored?.IncludePrerelease ?? false
+        };
     }
 
     public static void Save(UpdateSettings settings)
     {
         var stored = new StoredUpdateSettings
         {
-            RepoUrl = settings.RepoUrl,
             IncludePrerelease = settings.IncludePrerelease
         };
 
+        CredentialStore.SaveRepoUrl(settings.RepoUrl);
         CredentialStore.SaveToken(settings.Token);
 
         var json = JsonSerializer.Serialize(stored, JsonOptions);

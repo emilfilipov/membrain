@@ -9,13 +9,7 @@ public sealed class ClipboardItem
     {
         get
         {
-            var flattened = Text.Replace("\r", " ").Replace("\n", " ").Trim();
-            if (flattened.Length <= 80)
-            {
-                return flattened;
-            }
-
-            return flattened[..80] + "...";
+            return Text.Replace("\r", "").Trim();
         }
     }
 

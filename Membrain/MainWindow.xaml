@@ -284,8 +284,10 @@
       <Setter Property="Foreground" Value="{StaticResource TextPrimaryBrush}" />
       <Setter Property="Background" Value="{StaticResource CardBrush}" />
       <Setter Property="BorderBrush" Value="{StaticResource BorderBrush}" />
-      <Setter Property="BorderThickness" Value="1" />
+      <Setter Property="BorderThickness" Value="0" />
       <Setter Property="Padding" Value="10,8" />
+      <Setter Property="HorizontalContentAlignment" Value="Center" />
+      <Setter Property="VerticalContentAlignment" Value="Center" />
       <Setter Property="Template">
         <Setter.Value>
           <ControlTemplate TargetType="Button">
@@ -294,11 +296,11 @@
                     BorderBrush="{TemplateBinding BorderBrush}"
                     BorderThickness="{TemplateBinding BorderThickness}"
                     CornerRadius="10">
-              <ContentPresenter HorizontalAlignment="Stretch" VerticalAlignment="Center" />
+              <ContentPresenter HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"
+                                VerticalAlignment="{TemplateBinding VerticalContentAlignment}" />
             </Border>
             <ControlTemplate.Triggers>
               <Trigger Property="IsMouseOver" Value="True">
-                <Setter TargetName="Root" Property="BorderBrush" Value="{StaticResource AccentBrush}" />
                 <Setter TargetName="Root" Property="Background" Value="{StaticResource CardHoverBrush}" />
               </Trigger>
               <Trigger Property="IsPressed" Value="True">
@@ -314,10 +316,13 @@
     </Style>
 
     <Style x:Key="ClipboardCardButton" TargetType="Button" BasedOn="{StaticResource CardButton}">
+      <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+      <Setter Property="VerticalContentAlignment" Value="Center" />
       <Style.Triggers>
         <DataTrigger Binding="{Binding RelativeSource={RelativeSource AncestorType=ListBoxItem}, Path=IsSelected}" Value="True">
           <Setter Property="Background" Value="#1D3140" />
           <Setter Property="BorderBrush" Value="{StaticResource AccentBrush}" />
+          <Setter Property="BorderThickness" Value="1" />
         </DataTrigger>
       </Style.Triggers>
     </Style>
@@ -334,8 +339,8 @@
     <Style TargetType="ListBox">
       <Setter Property="Foreground" Value="{StaticResource TextPrimaryBrush}" />
       <Setter Property="Background" Value="{StaticResource SurfaceBrush}" />
-      <Setter Property="BorderBrush" Value="{StaticResource BorderSoftBrush}" />
-      <Setter Property="BorderThickness" Value="1" />
+      <Setter Property="BorderBrush" Value="Transparent" />
+      <Setter Property="BorderThickness" Value="0" />
       <Setter Property="Template">
         <Setter.Value>
           <ControlTemplate TargetType="ListBox">
@@ -363,20 +368,7 @@
       <Setter Property="Template">
         <Setter.Value>
           <ControlTemplate TargetType="ListBoxItem">
-            <Border x:Name="SelectionFrame"
-                    BorderBrush="Transparent"
-                    BorderThickness="1"
-                    Background="Transparent"
-                    CornerRadius="11"
-                    Padding="2">
-              <ContentPresenter />
-            </Border>
-            <ControlTemplate.Triggers>
-              <Trigger Property="IsSelected" Value="True">
-                <Setter TargetName="SelectionFrame" Property="BorderBrush" Value="{StaticResource AccentBrush}" />
-                <Setter TargetName="SelectionFrame" Property="Background" Value="#0F1D27" />
-              </Trigger>
-            </ControlTemplate.Triggers>
+            <ContentPresenter />
           </ControlTemplate>
         </Setter.Value>
       </Setter>
@@ -405,7 +397,6 @@
 
         <StackPanel Grid.Column="1" Orientation="Vertical" VerticalAlignment="Center">
           <TextBlock Text="MEMBRAIN" Foreground="{StaticResource TextPrimaryBrush}" FontSize="15" FontWeight="Bold" />
-          <TextBlock Text="Clipboard Strip" Foreground="{StaticResource TextMutedBrush}" FontSize="11" />
         </StackPanel>
 
         <Button Grid.Column="2"
@@ -522,7 +513,7 @@
                       Style="{StaticResource CardButton}"
                       Click="SaveSettingsButton_Click" />
               <Button Name="CheckUpdatesButton"
-                      Content="Check Updates"
+                      Content="Update"
                       Width="110"
                       Height="30"
                       Style="{StaticResource CardButton}"

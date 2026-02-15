@@ -386,16 +386,7 @@ public partial class MainWindow : Window
                 return;
             }
 
-            if (_history.Count > 0 && string.Equals(_history[0].Text, text, StringComparison.Ordinal))
-            {
-                return;
-            }
-
-            _history.Insert(0, new ClipboardItem
-            {
-                Text = text,
-                CapturedAtUtc = DateTimeOffset.UtcNow
-            });
+            PromoteOrInsertClipboardText(text, updateTimestamp: true, selectInsertedItem: false);
 
             TrimHistoryAndPersist();
         }
@@ -403,6 +394,56 @@ public partial class MainWindow : Window
         {
             // Another app can lock clipboard briefly.
         }
+    }
+
+    private void PromoteOrInsertClipboardText(string text, bool updateTimestamp, bool selectInsertedItem)
+    {
+        var existingIndex = FindHistoryIndexByText(text);
+        ClipboardItem selectedItem;
+
+        if (existingIndex == 0)
+        {
+            selectedItem = _history[0];
+        }
+        else
+        {
+            var capturedAt = DateTimeOffset.UtcNow;
+            if (existingIndex > 0)
+            {
+                if (!updateTimestamp)
+                {
+                    capturedAt = _history[existingIndex].CapturedAtUtc;
+                }
+
+                _history.RemoveAt(existingIndex);
+            }
+
+            selectedItem = new ClipboardItem
+            {
+                Text = text,
+                CapturedAtUtc = capturedAt
+            };
+            _history.Insert(0, selectedItem);
+        }
+
+        if (selectInsertedItem)
+        {
+            HistoryList.SelectedItem = selectedItem;
+            HistoryList.ScrollIntoView(selectedItem);
+        }
+    }
+
+    private int FindHistoryIndexByText(string text)
+    {
+        for (var index = 0; index < _history.Count; index++)
+        {
+            if (string.Equals(_history[index].Text, text, StringComparison.Ordinal))
+            {
+                return index;
+            }
+        }
+
+        return -1;
     }
 
     private void TrimHistoryAndPersist()
@@ -533,6 +574,9 @@ public partial class MainWindow : Window
             return;
         }
 
+        PromoteOrInsertClipboardText(item.Text, updateTimestamp: true, selectInsertedItem: true);
+        TrimHistoryAndPersist();
+
         _suppressNextClipboardCapture = true;
         _suppressedClipboardText = item.Text;
         WpfClipboard.SetText(item.Text);
@@ -566,25 +610,29 @@ public partial class MainWindow : Window
     private void LoadUpdateSettingsIntoUi()
     {
         var updateSettings = _updateService.Settings;
-        UpdateRepoTextBox.Text = updateSettings.RepoUrl ?? string.Empty;
+        UpdateRepoTextBox.Clear();
+        UpdateTokenBox.Clear();
         IncludePrereleaseCheckBox.IsChecked = updateSettings.IncludePrerelease;
     }
 
     private void ApplyUpdateSettingsFromUi()
     {
+        var repoUrl = UpdateRepoTextBox.Text.Trim();
+        var existingRepoUrl = _updateService.Settings.RepoUrl;
+        var effectiveRepoUrl = string.IsNullOrWhiteSpace(repoUrl) ? existingRepoUrl : repoUrl;
+
         var token = UpdateTokenBox.Password.Trim();
         var existingToken = _updateService.Settings.Token;
         var effectiveToken = string.IsNullOrWhiteSpace(token) ? existingToken : token;
 
         _updateService.UpdateSettings(new UpdateSettings
         {
-            RepoUrl = string.IsNullOrWhiteSpace(UpdateRepoTextBox.Text)
-                ? null
-                : UpdateRepoTextBox.Text.Trim(),
+            RepoUrl = effectiveRepoUrl,
             Token = effectiveToken,
             IncludePrerelease = IncludePrereleaseCheckBox.IsChecked == true
         });
 
+        UpdateRepoTextBox.Clear();
         UpdateTokenBox.Clear();
     }
 
