@@ -8,7 +8,10 @@ using System.Windows.Threading;
 using Membrain.Models;
 using Membrain.Services;
 using Forms = System.Windows.Forms;
+using WpfButton = System.Windows.Controls.Button;
 using WpfClipboard = System.Windows.Clipboard;
+using WpfMessageBox = System.Windows.MessageBox;
+using WpfTextDataFormat = System.Windows.TextDataFormat;
 
 namespace Membrain;
 
@@ -223,7 +226,7 @@ public partial class MainWindow : Window
                 return;
             }
 
-            var text = WpfClipboard.GetText(TextDataFormat.UnicodeText).Trim();
+            var text = WpfClipboard.GetText(WpfTextDataFormat.UnicodeText).Trim();
             if (string.IsNullOrWhiteSpace(text))
             {
                 return;
@@ -587,7 +590,7 @@ public partial class MainWindow : Window
             if (pending != null)
             {
                 SetUpdateStatus("Update is ready. Restart to apply.");
-                var restart = MessageBox.Show(this, "An update is ready. Restart now?", "Membrain Updates", MessageBoxButton.YesNo, MessageBoxImage.Question);
+                var restart = WpfMessageBox.Show(this, "An update is ready. Restart now?", "Membrain Updates", MessageBoxButton.YesNo, MessageBoxImage.Question);
                 if (restart == MessageBoxResult.Yes)
                 {
                     manager.ApplyUpdatesAndRestart(pending, Array.Empty<string>());
@@ -604,7 +607,7 @@ public partial class MainWindow : Window
             }
 
             var version = updateInfo.TargetFullRelease.Version.ToString();
-            var confirm = MessageBox.Show(this, $"Update {version} is available. Install now?", "Membrain Updates", MessageBoxButton.YesNo, MessageBoxImage.Question);
+            var confirm = WpfMessageBox.Show(this, $"Update {version} is available. Install now?", "Membrain Updates", MessageBoxButton.YesNo, MessageBoxImage.Question);
             if (confirm != MessageBoxResult.Yes)
             {
                 SetUpdateStatus($"Update available: {version}");
@@ -636,7 +639,7 @@ public partial class MainWindow : Window
 
     private void ClipboardCard_Click(object sender, RoutedEventArgs e)
     {
-        if (sender is Button { DataContext: ClipboardItem item })
+        if (sender is WpfButton { DataContext: ClipboardItem item })
         {
             HistoryList.SelectedItem = item;
             RegisterOverlayInteraction();
