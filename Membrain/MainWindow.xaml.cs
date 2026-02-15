@@ -921,12 +921,11 @@ public partial class MainWindow : Window
         SaveSettingsButton.Content = $"Save ({FormatShortcutKey(_settings.SettingsSaveKey)})";
         CheckUpdatesButton.Content = $"Update ({FormatShortcutKey(_settings.SettingsUpdateKey)})";
         BackFromSettingsButton.Content = $"Back ({FormatShortcutKey(_settings.SettingsBackKey)})";
-        CopySelectedButton.Content = $"Select ({FormatShortcutKey(_settings.SelectKey)})";
         SettingsToggleButton.ToolTip = $"Settings ({FormatShortcutKey(_settings.OpenSettingsKey)})";
         StripHintsTextBlock.Text =
-            $"Strip: {FormatShortcutKey(_settings.OpenSettingsKey)} Settings  " +
-            $"{FormatShortcutKey(_settings.SelectKey)} Select  " +
-            $"{FormatShortcutKey(_settings.HideStripKey)} Hide  " +
+            $"{FormatShortcutKey(_settings.OpenSettingsKey)} Settings{Environment.NewLine}" +
+            $"{FormatShortcutKey(_settings.SelectKey)} Select{Environment.NewLine}" +
+            $"{FormatShortcutKey(_settings.HideStripKey)} Hide{Environment.NewLine}" +
             $"{FormatShortcutKey(_settings.ScrollUpKey)}/{FormatShortcutKey(_settings.ScrollDownKey)} Scroll";
     }
 

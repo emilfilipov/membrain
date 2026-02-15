@@ -414,7 +414,6 @@
         <Grid.RowDefinitions>
           <RowDefinition Height="Auto" />
           <RowDefinition Height="*" />
-          <RowDefinition Height="Auto" />
         </Grid.RowDefinitions>
 
         <Border Grid.Row="0"
@@ -469,21 +468,11 @@
             </DataTemplate>
           </ListBox.ItemTemplate>
         </ListBox>
-
-        <StackPanel Grid.Row="2" Orientation="Horizontal" Margin="0,8,0,0">
-          <Button Name="CopySelectedButton"
-                  Content="Select"
-                  Width="110"
-                  Height="30"
-                  Click="CopySelectedButton_Click"
-                  Style="{StaticResource CardButton}" />
-          <TextBlock Name="StatusTextBlock"
-                     Margin="10,6,0,0"
-                     Foreground="{StaticResource TextMutedBrush}"
-                     FontSize="11"
-                     Text="Ready" />
-        </StackPanel>
       </Grid>
+
+      <TextBlock Name="StatusTextBlock"
+                 Visibility="Collapsed"
+                 Text="Ready" />
 
       <Border Grid.RowSpan="3"
               Name="SettingsPanel"
