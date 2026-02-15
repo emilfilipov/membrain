@@ -44,8 +44,7 @@ public partial class MainWindow : Window
 
     private bool _isShuttingDown;
     private bool _updateBusy;
-    private bool _suppressNextClipboardCapture;
-    private string? _suppressedClipboardText;
+    private string? _suppressedClipboardHash;
     private DateTimeOffset _lastOverlayInteractionUtc = DateTimeOffset.UtcNow;
     private DateTimeOffset _lastActivationToggleUtc = DateTimeOffset.MinValue;
 
@@ -285,7 +284,7 @@ public partial class MainWindow : Window
                 break;
 
             case WmClipboardUpdate:
-                CaptureClipboardText();
+                CaptureClipboardContent();
                 handled = true;
                 break;
         }
@@ -341,7 +340,7 @@ public partial class MainWindow : Window
             return false;
         }
 
-        if (_activationHotkey.Modifiers.HasFlag(HotkeyModifiers.CapsLock) && !IsCapsLockOn())
+        if (_activationHotkey.Modifiers.HasFlag(HotkeyModifiers.CapsLock) && !IsCapsLockPressed())
         {
             return false;
         }
@@ -359,36 +358,26 @@ public partial class MainWindow : Window
         return (GetAsyncKeyState(0x5B) & 0x8000) != 0 || (GetAsyncKeyState(0x5C) & 0x8000) != 0;
     }
 
-    private static bool IsCapsLockOn()
-    {
-        return (GetKeyState(0x14) & 0x0001) == 0x0001;
-    }
+    private static bool IsCapsLockPressed() => IsAnyKeyDown(0x14);
 
-    private void CaptureClipboardText()
+    private void CaptureClipboardContent()
     {
         try
         {
-            if (!WpfClipboard.ContainsText())
+            if (WpfClipboard.ContainsImage())
             {
-                return;
+                var image = WpfClipboard.GetImage();
+                if (image != null)
+                {
+                    CaptureClipboardImage(image);
+                    return;
+                }
             }
 
-            var text = WpfClipboard.GetText(WpfTextDataFormat.UnicodeText).Trim();
-            if (string.IsNullOrWhiteSpace(text))
+            if (WpfClipboard.ContainsText())
             {
-                return;
+                CaptureClipboardText();
             }
-
-            if (_suppressNextClipboardCapture && string.Equals(text, _suppressedClipboardText, StringComparison.Ordinal))
-            {
-                _suppressNextClipboardCapture = false;
-                _suppressedClipboardText = null;
-                return;
-            }
-
-            PromoteOrInsertClipboardText(text, updateTimestamp: true, selectInsertedItem: false);
-
-            TrimHistoryAndPersist();
         }
         catch
         {
@@ -396,48 +385,115 @@ public partial class MainWindow : Window
         }
     }
 
-    private void PromoteOrInsertClipboardText(string text, bool updateTimestamp, bool selectInsertedItem)
+    private void CaptureClipboardText()
     {
-        var existingIndex = FindHistoryIndexByText(text);
-        ClipboardItem selectedItem;
-
-        if (existingIndex == 0)
+        var text = WpfClipboard.GetText(WpfTextDataFormat.UnicodeText).Trim();
+        if (string.IsNullOrWhiteSpace(text))
         {
-            selectedItem = _history[0];
+            return;
         }
-        else
-        {
-            var capturedAt = DateTimeOffset.UtcNow;
-            if (existingIndex > 0)
-            {
-                if (!updateTimestamp)
-                {
-                    capturedAt = _history[existingIndex].CapturedAtUtc;
-                }
 
-                _history.RemoveAt(existingIndex);
+        var hash = ClipboardHashService.ComputeTextHash(text);
+        if (TryConsumeSuppressedHash(hash))
+        {
+            return;
+        }
+
+        var item = new ClipboardItem
+        {
+            Kind = ClipboardItemKind.Text,
+            ContentHash = hash,
+            Text = text,
+            CapturedAtUtc = DateTimeOffset.UtcNow
+        };
+
+        PromoteOrInsertClipboardItem(item, selectInsertedItem: false);
+        TrimHistoryAndPersist();
+    }
+
+    private void CaptureClipboardImage(BitmapSource imageSource)
+    {
+        var item = BuildImageClipboardItem(imageSource);
+        if (item == null)
+        {
+            return;
+        }
+
+        if (TryConsumeSuppressedHash(item.ContentHash))
+        {
+            return;
+        }
+
+        PromoteOrInsertClipboardItem(item, selectInsertedItem: false);
+        TrimHistoryAndPersist();
+    }
+
+    private ClipboardItem? BuildImageClipboardItem(BitmapSource imageSource)
+    {
+        try
+        {
+            var encoder = new PngBitmapEncoder();
+            encoder.Frames.Add(BitmapFrame.Create(imageSource));
+            using var memoryStream = new MemoryStream();
+            encoder.Save(memoryStream);
+            var imageBytes = memoryStream.ToArray();
+            var imageHash = ClipboardHashService.ComputeImageHash(imageBytes);
+            var imagePath = Path.Combine(AppPaths.ClipboardImagesDirectory, imageHash.Replace(":", "_", StringComparison.Ordinal) + ".png");
+
+            if (!File.Exists(imagePath))
+            {
+                File.WriteAllBytes(imagePath, imageBytes);
             }
 
-            selectedItem = new ClipboardItem
+            return new ClipboardItem
             {
-                Text = text,
-                CapturedAtUtc = capturedAt
+                Kind = ClipboardItemKind.Image,
+                ContentHash = imageHash,
+                ImagePath = imagePath,
+                ImagePixelWidth = imageSource.PixelWidth,
+                ImagePixelHeight = imageSource.PixelHeight,
+                CapturedAtUtc = DateTimeOffset.UtcNow
             };
-            _history.Insert(0, selectedItem);
         }
-
-        if (selectInsertedItem)
+        catch
         {
-            HistoryList.SelectedItem = selectedItem;
-            HistoryList.ScrollIntoView(selectedItem);
+            return null;
         }
     }
 
-    private int FindHistoryIndexByText(string text)
+    private bool TryConsumeSuppressedHash(string hash)
+    {
+        if (!string.Equals(_suppressedClipboardHash, hash, StringComparison.Ordinal))
+        {
+            return false;
+        }
+
+        _suppressedClipboardHash = null;
+        return true;
+    }
+
+    private void PromoteOrInsertClipboardItem(ClipboardItem item, bool selectInsertedItem)
+    {
+        var existingIndex = FindHistoryIndexByHash(item.ContentHash);
+        if (existingIndex >= 0)
+        {
+            _history.RemoveAt(existingIndex);
+        }
+
+        _history.Insert(0, item);
+
+        if (selectInsertedItem)
+        {
+            HistoryList.SelectedItem = item;
+            HistoryList.ScrollIntoView(item);
+        }
+    }
+
+    private int FindHistoryIndexByHash(string hash)
     {
         for (var index = 0; index < _history.Count; index++)
         {
-            if (string.Equals(_history[index].Text, text, StringComparison.Ordinal))
+            if (string.Equals(_history[index].ContentHash, hash, StringComparison.Ordinal))
             {
                 return index;
             }
@@ -574,13 +630,45 @@ public partial class MainWindow : Window
             return;
         }
 
-        PromoteOrInsertClipboardText(item.Text, updateTimestamp: true, selectInsertedItem: true);
+        var promotedItem = new ClipboardItem
+        {
+            Kind = item.Kind,
+            ContentHash = item.ContentHash,
+            Text = item.Text,
+            ImagePath = item.ImagePath,
+            ImagePixelWidth = item.ImagePixelWidth,
+            ImagePixelHeight = item.ImagePixelHeight,
+            CapturedAtUtc = DateTimeOffset.UtcNow
+        };
+
+        PromoteOrInsertClipboardItem(promotedItem, selectInsertedItem: true);
         TrimHistoryAndPersist();
 
-        _suppressNextClipboardCapture = true;
-        _suppressedClipboardText = item.Text;
-        WpfClipboard.SetText(item.Text);
-        SetStatus("Copied selected entry.");
+        _suppressedClipboardHash = promotedItem.ContentHash;
+
+        if (promotedItem.Kind == ClipboardItemKind.Image && !string.IsNullOrWhiteSpace(promotedItem.ImagePath) && File.Exists(promotedItem.ImagePath))
+        {
+            var bitmap = new BitmapImage();
+            bitmap.BeginInit();
+            bitmap.CacheOption = BitmapCacheOption.OnLoad;
+            bitmap.UriSource = new Uri(promotedItem.ImagePath, UriKind.Absolute);
+            bitmap.EndInit();
+            bitmap.Freeze();
+            WpfClipboard.SetImage(bitmap);
+            SetStatus("Copied selected image.");
+        }
+        else if (!string.IsNullOrWhiteSpace(promotedItem.Text))
+        {
+            WpfClipboard.SetText(promotedItem.Text);
+            SetStatus("Copied selected entry.");
+        }
+        else
+        {
+            _suppressedClipboardHash = null;
+            SetStatus("Selected item is unavailable.");
+            return;
+        }
+
         HideOverlay();
     }
 
@@ -875,9 +963,6 @@ public partial class MainWindow : Window
 
     [DllImport("user32.dll")]
     private static extern short GetAsyncKeyState(int virtualKey);
-
-    [DllImport("user32.dll")]
-    private static extern short GetKeyState(int virtualKey);
 
     private sealed class TrayMenuColorTable : Forms.ProfessionalColorTable
     {

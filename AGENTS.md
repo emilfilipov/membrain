@@ -21,7 +21,7 @@ dotnet publish Membrain/Membrain.csproj -c Release -o publish -r win-x64 --self-
 ## App Behavior
 - Background clipboard listener via `AddClipboardFormatListener`
 - Overlay strip is topmost, side-pinned, and toggled by global hotkey
-- Scroll keys move selection through cards; select key copies selected card text
+- Scroll keys move selection through cards; select key copies selected card payload (text or image)
 - Overlay auto-hides after a configurable timeout unless settings panel is open
 - Default activation hotkey is `CapsLock+D`
 

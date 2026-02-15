@@ -15,6 +15,7 @@
         FontFamily="Bahnschrift"
         FocusVisualStyle="{x:Null}">
   <Window.Resources>
+    <BooleanToVisibilityConverter x:Key="BoolToVisibility" />
     <SolidColorBrush x:Key="BgBrush" Color="#101820" />
     <SolidColorBrush x:Key="SurfaceBrush" Color="#0F1720" />
     <SolidColorBrush x:Key="PanelBrush" Color="#0B1219" />
@@ -425,14 +426,30 @@
           <ListBox.ItemTemplate>
             <DataTemplate>
               <Button Style="{StaticResource ClipboardCardButton}" Click="ClipboardCard_Click" Margin="0">
-                <Grid>
-                  <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="*" />
-                    <ColumnDefinition Width="Auto" />
-                  </Grid.ColumnDefinitions>
-                  <TextBlock Text="{Binding Preview}" TextWrapping="Wrap" Foreground="{StaticResource TextPrimaryBrush}" Margin="0,0,10,0" />
-                  <TextBlock Grid.Column="1" Text="{Binding Timestamp}" Foreground="{StaticResource TextMutedBrush}" VerticalAlignment="Top" />
-                </Grid>
+                <StackPanel>
+                  <Border Visibility="{Binding IsImage, Converter={StaticResource BoolToVisibility}}"
+                          CornerRadius="7"
+                          Margin="0,0,0,8"
+                          Height="92"
+                          ClipToBounds="True">
+                    <Image Source="{Binding ImagePath}" Stretch="UniformToFill" />
+                  </Border>
+                  <Grid>
+                    <Grid.ColumnDefinitions>
+                      <ColumnDefinition Width="*" />
+                      <ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
+                    <TextBlock Text="{Binding Preview}"
+                               TextWrapping="Wrap"
+                               Foreground="{StaticResource TextPrimaryBrush}"
+                               Margin="0,0,10,0"
+                               VerticalAlignment="Center" />
+                    <TextBlock Grid.Column="1"
+                               Text="{Binding Timestamp}"
+                               Foreground="{StaticResource TextMutedBrush}"
+                               VerticalAlignment="Top" />
+                  </Grid>
+                </StackPanel>
               </Button>
             </DataTemplate>
           </ListBox.ItemTemplate>
