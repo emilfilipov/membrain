@@ -481,7 +481,24 @@
               Padding="12">
         <ScrollViewer VerticalScrollBarVisibility="Auto">
           <StackPanel>
-            <TextBlock Text="Settings" Foreground="{StaticResource TextPrimaryBrush}" FontSize="16" FontWeight="SemiBold" Margin="0,0,0,10" />
+            <Grid Margin="0,0,0,10">
+              <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="Auto" />
+              </Grid.ColumnDefinitions>
+              <TextBlock Text="Settings"
+                         Foreground="{StaticResource TextPrimaryBrush}"
+                         FontSize="16"
+                         FontWeight="SemiBold"
+                         VerticalAlignment="Center" />
+              <Button Grid.Column="1"
+                      Content="Back"
+                      Width="70"
+                      Height="28"
+                      Margin="8,0,0,0"
+                      Style="{StaticResource CardButton}"
+                      Click="BackFromSettingsButton_Click" />
+            </Grid>
 
             <TextBlock Text="Activation Hotkey" Style="{StaticResource SettingLabel}" />
             <TextBox Name="ActivationHotkeyTextBox" Margin="0,4,0,10" Height="32" />

@@ -762,6 +762,19 @@ public partial class MainWindow : Window
         RegisterOverlayInteraction();
     }
 
+    private void BackFromSettingsButton_Click(object sender, RoutedEventArgs e)
+    {
+        SettingsPanel.Visibility = Visibility.Collapsed;
+        RegisterOverlayInteraction();
+
+        if (_history.Count > 0 && HistoryList.SelectedIndex < 0)
+        {
+            HistoryList.SelectedIndex = 0;
+        }
+
+        HistoryList.Focus();
+    }
+
     private void SaveSettingsButton_Click(object sender, RoutedEventArgs e)
     {
         var activation = ActivationHotkeyTextBox.Text.Trim();
