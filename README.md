@@ -7,6 +7,7 @@ Membrain is a Windows desktop clipboard strip app.
 - Opens a thin topmost vertical strip with a global activation hotkey.
 - Shows clipboard entries as cards (text and images with thumbnails).
 - Supports keyboard scroll keys for history navigation.
+- Supports configurable strip/settings shortcuts (default strip: `A` settings, `S` select, `D` hide; settings: `A` save, `S` update, `D` back).
 - Auto-hides after configured timeout (unless Settings is open).
 
 ## Settings (cogwheel)
@@ -14,6 +15,9 @@ Membrain is a Windows desktop clipboard strip app.
 - Screen side (left/right)
 - Scroll up/down keys
 - Select key (copies selected card into clipboard)
+- Open settings key (strip)
+- Hide strip key (strip)
+- Save/update/back keys (settings panel)
 - Retained clipboard items (default `15`)
 - Auto-hide timeout in seconds
 - Update repo/token configuration

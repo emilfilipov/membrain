@@ -457,7 +457,7 @@
 
         <StackPanel Grid.Row="1" Orientation="Horizontal" Margin="0,8,0,0">
           <Button Name="CopySelectedButton"
-                  Content="Copy Selected"
+                  Content="Select"
                   Width="110"
                   Height="30"
                   Click="CopySelectedButton_Click"
@@ -492,6 +492,7 @@
                          FontWeight="SemiBold"
                          VerticalAlignment="Center" />
               <Button Grid.Column="1"
+                      Name="BackFromSettingsButton"
                       Content="Back"
                       Width="70"
                       Height="28"
@@ -517,6 +518,21 @@
 
             <TextBlock Text="Select Key" Style="{StaticResource SettingLabel}" />
             <TextBox Name="SelectKeyTextBox" Margin="0,4,0,10" Height="32" />
+
+            <TextBlock Text="Open Settings Key (Strip)" Style="{StaticResource SettingLabel}" />
+            <TextBox Name="OpenSettingsKeyTextBox" Margin="0,4,0,10" Height="32" />
+
+            <TextBlock Text="Hide Strip Key (Strip)" Style="{StaticResource SettingLabel}" />
+            <TextBox Name="HideStripKeyTextBox" Margin="0,4,0,10" Height="32" />
+
+            <TextBlock Text="Save Key (Settings)" Style="{StaticResource SettingLabel}" />
+            <TextBox Name="SettingsSaveKeyTextBox" Margin="0,4,0,10" Height="32" />
+
+            <TextBlock Text="Update Key (Settings)" Style="{StaticResource SettingLabel}" />
+            <TextBox Name="SettingsUpdateKeyTextBox" Margin="0,4,0,10" Height="32" />
+
+            <TextBlock Text="Back Key (Settings)" Style="{StaticResource SettingLabel}" />
+            <TextBox Name="SettingsBackKeyTextBox" Margin="0,4,0,10" Height="32" />
 
             <TextBlock Text="Retained Clipboard Items" Style="{StaticResource SettingLabel}" />
             <TextBox Name="RetainedItemsLimitTextBox" Margin="0,4,0,10" Height="32" />

@@ -40,6 +40,11 @@ public partial class MainWindow : Window
     private Key _scrollUpKey;
     private Key _scrollDownKey;
     private Key _selectKey;
+    private Key _openSettingsKey;
+    private Key _hideStripKey;
+    private Key _settingsSaveKey;
+    private Key _settingsUpdateKey;
+    private Key _settingsBackKey;
     private bool _activationUsesLowLevelHook;
 
     private bool _isShuttingDown;
@@ -56,7 +61,12 @@ public partial class MainWindow : Window
         _activationHotkey = ParseActivationHotkey(_settings.ActivationHotkey);
         _scrollUpKey = ParseSingleKey(_settings.ScrollUpKey, Key.Up);
         _scrollDownKey = ParseSingleKey(_settings.ScrollDownKey, Key.Down);
-        _selectKey = ParseSingleKey(_settings.SelectKey, Key.Enter);
+        _selectKey = ParseSingleKey(_settings.SelectKey, Key.S);
+        _openSettingsKey = ParseSingleKey(_settings.OpenSettingsKey, Key.A);
+        _hideStripKey = ParseSingleKey(_settings.HideStripKey, Key.D);
+        _settingsSaveKey = ParseSingleKey(_settings.SettingsSaveKey, Key.A);
+        _settingsUpdateKey = ParseSingleKey(_settings.SettingsUpdateKey, Key.S);
+        _settingsBackKey = ParseSingleKey(_settings.SettingsBackKey, Key.D);
 
         foreach (var item in ClipboardHistoryStore.Load(_settings.RetainedItemsLimit))
         {
@@ -242,8 +252,37 @@ public partial class MainWindow : Window
             return true;
         }
 
-        if (!IsVisible || SettingsPanel.Visibility == Visibility.Visible)
+        if (!IsVisible)
         {
+            return false;
+        }
+
+        if (SettingsPanel.Visibility == Visibility.Visible)
+        {
+            if (key == _settingsSaveKey)
+            {
+                Dispatcher.Invoke(() => SaveSettingsButton_Click(this, new RoutedEventArgs()));
+                return true;
+            }
+
+            if (key == _settingsUpdateKey)
+            {
+                Dispatcher.Invoke(() => CheckUpdatesButton_Click(this, new RoutedEventArgs()));
+                return true;
+            }
+
+            if (key == _settingsBackKey)
+            {
+                Dispatcher.Invoke(CloseSettingsPanel);
+                return true;
+            }
+
+            if (key == Key.Escape)
+            {
+                Dispatcher.Invoke(HideOverlay);
+                return true;
+            }
+
             return false;
         }
 
@@ -265,7 +304,13 @@ public partial class MainWindow : Window
             return true;
         }
 
-        if (key == Key.Escape)
+        if (key == _openSettingsKey)
+        {
+            Dispatcher.Invoke(OpenSettingsPanel);
+            return true;
+        }
+
+        if (key == _hideStripKey || key == Key.Escape)
         {
             Dispatcher.Invoke(HideOverlay);
             return true;
@@ -678,6 +723,11 @@ public partial class MainWindow : Window
         ScrollUpKeyTextBox.Text = _settings.ScrollUpKey;
         ScrollDownKeyTextBox.Text = _settings.ScrollDownKey;
         SelectKeyTextBox.Text = _settings.SelectKey;
+        OpenSettingsKeyTextBox.Text = _settings.OpenSettingsKey;
+        HideStripKeyTextBox.Text = _settings.HideStripKey;
+        SettingsSaveKeyTextBox.Text = _settings.SettingsSaveKey;
+        SettingsUpdateKeyTextBox.Text = _settings.SettingsUpdateKey;
+        SettingsBackKeyTextBox.Text = _settings.SettingsBackKey;
         RetainedItemsLimitTextBox.Text = _settings.RetainedItemsLimit.ToString();
         AutoHideSecondsTextBox.Text = _settings.AutoHideSeconds.ToString();
 
@@ -693,6 +743,7 @@ public partial class MainWindow : Window
         }
 
         SideComboBox.SelectedIndex = SideComboBox.SelectedIndex < 0 ? 0 : SideComboBox.SelectedIndex;
+        ApplyShortcutLabels();
     }
 
     private void LoadUpdateSettingsIntoUi()
@@ -754,15 +805,29 @@ public partial class MainWindow : Window
         UpdateStatusTextBlock.Text = text;
     }
 
-    private void SettingsToggleButton_Click(object sender, RoutedEventArgs e)
+    private void ApplyShortcutLabels()
     {
-        SettingsPanel.Visibility = SettingsPanel.Visibility == Visibility.Visible
-            ? Visibility.Collapsed
-            : Visibility.Visible;
-        RegisterOverlayInteraction();
+        SaveSettingsButton.Content = $"Save ({FormatShortcutKey(_settings.SettingsSaveKey)})";
+        CheckUpdatesButton.Content = $"Update ({FormatShortcutKey(_settings.SettingsUpdateKey)})";
+        BackFromSettingsButton.Content = $"Back ({FormatShortcutKey(_settings.SettingsBackKey)})";
+        CopySelectedButton.Content = $"Select ({FormatShortcutKey(_settings.SelectKey)})";
+        SettingsToggleButton.ToolTip = $"Settings ({FormatShortcutKey(_settings.OpenSettingsKey)})";
     }
 
-    private void BackFromSettingsButton_Click(object sender, RoutedEventArgs e)
+    private static string FormatShortcutKey(string keyText)
+    {
+        return string.IsNullOrWhiteSpace(keyText) ? "?" : keyText.Trim().ToUpperInvariant();
+    }
+
+    private void OpenSettingsPanel()
+    {
+        SettingsPanel.Visibility = Visibility.Visible;
+        RegisterOverlayInteraction();
+        ActivationHotkeyTextBox.Focus();
+        ActivationHotkeyTextBox.SelectAll();
+    }
+
+    private void CloseSettingsPanel()
     {
         SettingsPanel.Visibility = Visibility.Collapsed;
         RegisterOverlayInteraction();
@@ -773,6 +838,23 @@ public partial class MainWindow : Window
         }
 
         HistoryList.Focus();
+    }
+
+    private void SettingsToggleButton_Click(object sender, RoutedEventArgs e)
+    {
+        if (SettingsPanel.Visibility == Visibility.Visible)
+        {
+            CloseSettingsPanel();
+        }
+        else
+        {
+            OpenSettingsPanel();
+        }
+    }
+
+    private void BackFromSettingsButton_Click(object sender, RoutedEventArgs e)
+    {
+        CloseSettingsPanel();
     }
 
     private void SaveSettingsButton_Click(object sender, RoutedEventArgs e)
@@ -799,6 +881,36 @@ public partial class MainWindow : Window
         if (!KeyParser.TryParseSingleKey(SelectKeyTextBox.Text.Trim(), out var selectKey))
         {
             SetStatus("Invalid select key.");
+            return;
+        }
+
+        if (!KeyParser.TryParseSingleKey(OpenSettingsKeyTextBox.Text.Trim(), out var openSettingsKey))
+        {
+            SetStatus("Invalid open settings key.");
+            return;
+        }
+
+        if (!KeyParser.TryParseSingleKey(HideStripKeyTextBox.Text.Trim(), out var hideStripKey))
+        {
+            SetStatus("Invalid hide strip key.");
+            return;
+        }
+
+        if (!KeyParser.TryParseSingleKey(SettingsSaveKeyTextBox.Text.Trim(), out var settingsSaveKey))
+        {
+            SetStatus("Invalid settings save key.");
+            return;
+        }
+
+        if (!KeyParser.TryParseSingleKey(SettingsUpdateKeyTextBox.Text.Trim(), out var settingsUpdateKey))
+        {
+            SetStatus("Invalid settings update key.");
+            return;
+        }
+
+        if (!KeyParser.TryParseSingleKey(SettingsBackKeyTextBox.Text.Trim(), out var settingsBackKey))
+        {
+            SetStatus("Invalid settings back key.");
             return;
         }
 
@@ -831,6 +943,11 @@ public partial class MainWindow : Window
             ScrollUpKey = scrollUp.ToString(),
             ScrollDownKey = scrollDown.ToString(),
             SelectKey = selectKey.ToString(),
+            OpenSettingsKey = openSettingsKey.ToString(),
+            HideStripKey = hideStripKey.ToString(),
+            SettingsSaveKey = settingsSaveKey.ToString(),
+            SettingsUpdateKey = settingsUpdateKey.ToString(),
+            SettingsBackKey = settingsBackKey.ToString(),
             RetainedItemsLimit = retained,
             AutoHideSeconds = autoHideSeconds
         };
@@ -841,11 +958,17 @@ public partial class MainWindow : Window
         _scrollUpKey = scrollUp;
         _scrollDownKey = scrollDown;
         _selectKey = selectKey;
+        _openSettingsKey = openSettingsKey;
+        _hideStripKey = hideStripKey;
+        _settingsSaveKey = settingsSaveKey;
+        _settingsUpdateKey = settingsUpdateKey;
+        _settingsBackKey = settingsBackKey;
 
         RegisterActivationHotkey();
         PositionWindow();
         TrimHistoryAndPersist();
         ApplyUpdateSettingsFromUi();
+        ApplyShortcutLabels();
         RegisterOverlayInteraction();
         SetStatus($"Saved settings. Retaining {retained} items. Auto-hide: {autoHideSeconds}s.");
     }
