@@ -313,6 +313,15 @@
       </Setter>
     </Style>
 
+    <Style x:Key="ClipboardCardButton" TargetType="Button" BasedOn="{StaticResource CardButton}">
+      <Style.Triggers>
+        <DataTrigger Binding="{Binding RelativeSource={RelativeSource AncestorType=ListBoxItem}, Path=IsSelected}" Value="True">
+          <Setter Property="Background" Value="#1D3140" />
+          <Setter Property="BorderBrush" Value="{StaticResource AccentBrush}" />
+        </DataTrigger>
+      </Style.Triggers>
+    </Style>
+
     <Style x:Key="IconButton" TargetType="Button" BasedOn="{StaticResource CardButton}">
       <Setter Property="Width" Value="30" />
       <Setter Property="Height" Value="30" />
@@ -348,13 +357,26 @@
       <Setter Property="Background" Value="Transparent" />
       <Setter Property="BorderThickness" Value="0" />
       <Setter Property="Padding" Value="0" />
-      <Setter Property="Margin" Value="0" />
+      <Setter Property="Margin" Value="0,0,0,6" />
       <Setter Property="HorizontalContentAlignment" Value="Stretch" />
       <Setter Property="VerticalContentAlignment" Value="Center" />
       <Setter Property="Template">
         <Setter.Value>
           <ControlTemplate TargetType="ListBoxItem">
-            <ContentPresenter />
+            <Border x:Name="SelectionFrame"
+                    BorderBrush="Transparent"
+                    BorderThickness="1"
+                    Background="Transparent"
+                    CornerRadius="11"
+                    Padding="2">
+              <ContentPresenter />
+            </Border>
+            <ControlTemplate.Triggers>
+              <Trigger Property="IsSelected" Value="True">
+                <Setter TargetName="SelectionFrame" Property="BorderBrush" Value="{StaticResource AccentBrush}" />
+                <Setter TargetName="SelectionFrame" Property="Background" Value="#0F1D27" />
+              </Trigger>
+            </ControlTemplate.Triggers>
           </ControlTemplate>
         </Setter.Value>
       </Setter>
@@ -411,7 +433,7 @@
                  SelectionMode="Single">
           <ListBox.ItemTemplate>
             <DataTemplate>
-              <Button Style="{StaticResource CardButton}" Click="ClipboardCard_Click" Margin="0,0,0,8">
+              <Button Style="{StaticResource ClipboardCardButton}" Click="ClipboardCard_Click" Margin="0">
                 <Grid>
                   <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="*" />
