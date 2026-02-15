@@ -1,6 +1,7 @@
 using System.Collections.ObjectModel;
 using System.IO;
 using System.Runtime.InteropServices;
+using System.Linq;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
@@ -27,6 +28,17 @@ public partial class MainWindow : Window
     private readonly UpdateService _updateService = new();
     private readonly DispatcherTimer _autoHideTimer = new() { Interval = TimeSpan.FromMilliseconds(350) };
     private readonly DispatcherTimer _backgroundUpdateTimer = new() { Interval = TimeSpan.FromHours(4) };
+    private static readonly string[] SupportedImageExtensions =
+    [
+        ".png",
+        ".jpg",
+        ".jpeg",
+        ".bmp",
+        ".gif",
+        ".webp",
+        ".tif",
+        ".tiff"
+    ];
 
     private AppSettings _settings;
     private GlobalHotKeyManager? _hotKeyManager;
@@ -431,6 +443,11 @@ public partial class MainWindow : Window
                 }
             }
 
+            if (CaptureClipboardImageFileDropList())
+            {
+                return;
+            }
+
             if (WpfClipboard.ContainsText())
             {
                 CaptureClipboardText();
@@ -439,6 +456,73 @@ public partial class MainWindow : Window
         catch
         {
             // Another app can lock clipboard briefly.
+        }
+    }
+
+    private bool CaptureClipboardImageFileDropList()
+    {
+        if (!WpfClipboard.ContainsFileDropList())
+        {
+            return false;
+        }
+
+        var files = WpfClipboard.GetFileDropList();
+        if (files.Count == 0)
+        {
+            return false;
+        }
+
+        var capturedAny = false;
+        foreach (var path in files.Cast<string>().Reverse())
+        {
+            if (!File.Exists(path))
+            {
+                continue;
+            }
+
+            var extension = Path.GetExtension(path);
+            if (string.IsNullOrWhiteSpace(extension) || !SupportedImageExtensions.Contains(extension, StringComparer.OrdinalIgnoreCase))
+            {
+                continue;
+            }
+
+            var item = BuildImageClipboardItemFromFile(path);
+            if (item == null || TryConsumeSuppressedHash(item.ContentHash))
+            {
+                continue;
+            }
+
+            PromoteOrInsertClipboardItem(item, selectInsertedItem: false);
+            capturedAny = true;
+        }
+
+        if (!capturedAny)
+        {
+            return false;
+        }
+
+        TrimHistoryAndPersist();
+        return true;
+    }
+
+    private ClipboardItem? BuildImageClipboardItemFromFile(string path)
+    {
+        try
+        {
+            using var stream = File.OpenRead(path);
+            var decoder = BitmapDecoder.Create(stream, BitmapCreateOptions.PreservePixelFormat, BitmapCacheOption.OnLoad);
+            if (decoder.Frames.Count == 0)
+            {
+                return null;
+            }
+
+            var frame = decoder.Frames[0];
+            frame.Freeze();
+            return BuildImageClipboardItem(frame);
+        }
+        catch
+        {
+            return null;
         }
     }
 
