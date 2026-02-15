@@ -412,12 +412,27 @@
 
       <Grid Grid.Row="1" Margin="8,0,8,8">
         <Grid.RowDefinitions>
+          <RowDefinition Height="Auto" />
           <RowDefinition Height="*" />
           <RowDefinition Height="Auto" />
         </Grid.RowDefinitions>
 
+        <Border Grid.Row="0"
+                Background="#0D151D"
+                BorderBrush="#223646"
+                BorderThickness="1"
+                CornerRadius="8"
+                Padding="8,5"
+                Margin="0,0,0,8">
+          <TextBlock Name="StripHintsTextBlock"
+                     Foreground="{StaticResource TextMutedBrush}"
+                     FontSize="11"
+                     TextWrapping="Wrap"
+                     Text="Strip shortcuts" />
+        </Border>
+
         <ListBox Name="HistoryList"
-                 Grid.Row="0"
+                 Grid.Row="1"
                  Padding="6"
                  MouseDoubleClick="HistoryList_MouseDoubleClick"
                  PreviewMouseWheel="HistoryList_PreviewMouseWheel"
@@ -455,7 +470,7 @@
           </ListBox.ItemTemplate>
         </ListBox>
 
-        <StackPanel Grid.Row="1" Orientation="Horizontal" Margin="0,8,0,0">
+        <StackPanel Grid.Row="2" Orientation="Horizontal" Margin="0,8,0,0">
           <Button Name="CopySelectedButton"
                   Content="Select"
                   Width="110"
@@ -482,23 +497,11 @@
         <ScrollViewer VerticalScrollBarVisibility="Auto">
           <StackPanel>
             <Grid Margin="0,0,0,10">
-              <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="*" />
-                <ColumnDefinition Width="Auto" />
-              </Grid.ColumnDefinitions>
               <TextBlock Text="Settings"
                          Foreground="{StaticResource TextPrimaryBrush}"
                          FontSize="16"
                          FontWeight="SemiBold"
                          VerticalAlignment="Center" />
-              <Button Grid.Column="1"
-                      Name="BackFromSettingsButton"
-                      Content="Back"
-                      Width="70"
-                      Height="28"
-                      Margin="8,0,0,0"
-                      Style="{StaticResource CardButton}"
-                      Click="BackFromSettingsButton_Click" />
             </Grid>
 
             <TextBlock Text="Activation Hotkey" Style="{StaticResource SettingLabel}" />
@@ -557,17 +560,24 @@
             <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
               <Button Name="SaveSettingsButton"
                       Content="Save"
-                      Width="90"
+                      Width="78"
                       Height="30"
                       Margin="0,0,8,0"
                       Style="{StaticResource CardButton}"
                       Click="SaveSettingsButton_Click" />
               <Button Name="CheckUpdatesButton"
                       Content="Update"
-                      Width="110"
+                      Width="88"
                       Height="30"
+                      Margin="0,0,8,0"
                       Style="{StaticResource CardButton}"
                       Click="CheckUpdatesButton_Click" />
+              <Button Name="BackFromSettingsButton"
+                      Content="Back"
+                      Width="70"
+                      Height="30"
+                      Style="{StaticResource CardButton}"
+                      Click="BackFromSettingsButton_Click" />
             </StackPanel>
 
             <TextBlock Name="UpdateStatusTextBlock" Foreground="{StaticResource TextMutedBrush}" FontSize="11" Text="Updates idle" />

@@ -812,6 +812,11 @@ public partial class MainWindow : Window
         BackFromSettingsButton.Content = $"Back ({FormatShortcutKey(_settings.SettingsBackKey)})";
         CopySelectedButton.Content = $"Select ({FormatShortcutKey(_settings.SelectKey)})";
         SettingsToggleButton.ToolTip = $"Settings ({FormatShortcutKey(_settings.OpenSettingsKey)})";
+        StripHintsTextBlock.Text =
+            $"Strip: {FormatShortcutKey(_settings.OpenSettingsKey)} Settings  " +
+            $"{FormatShortcutKey(_settings.SelectKey)} Select  " +
+            $"{FormatShortcutKey(_settings.HideStripKey)} Hide  " +
+            $"{FormatShortcutKey(_settings.ScrollUpKey)}/{FormatShortcutKey(_settings.ScrollDownKey)} Scroll";
     }
 
     private static string FormatShortcutKey(string keyText)
