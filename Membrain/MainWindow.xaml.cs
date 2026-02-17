@@ -854,7 +854,13 @@ public partial class MainWindow : Window
         }
 
         SideComboBox.SelectedIndex = SideComboBox.SelectedIndex < 0 ? 0 : SideComboBox.SelectedIndex;
+        RefreshStartupSettingUi();
         ApplyShortcutLabels();
+    }
+
+    private void RefreshStartupSettingUi()
+    {
+        StartWithWindowsCheckBox.IsChecked = StartupService.IsEnabled();
     }
 
     private void LoadUpdateSettingsIntoUi()
@@ -936,6 +942,7 @@ public partial class MainWindow : Window
 
     private void OpenSettingsPanel()
     {
+        RefreshStartupSettingUi();
         SettingsPanel.Visibility = Visibility.Visible;
         RegisterOverlayInteraction();
     }
@@ -1067,6 +1074,9 @@ public partial class MainWindow : Window
 
         SettingsStore.Save(_settings);
 
+        var startupEnabled = StartWithWindowsCheckBox.IsChecked == true;
+        var startupUpdated = StartupService.SetEnabled(startupEnabled);
+
         _activationHotkey = newHotkey;
         _scrollUpKey = scrollUp;
         _scrollDownKey = scrollDown;
@@ -1083,7 +1093,15 @@ public partial class MainWindow : Window
         ApplyUpdateSettingsFromUi();
         ApplyShortcutLabels();
         RegisterOverlayInteraction();
-        SetStatus($"Saved settings. Retaining {retained} items. Auto-hide: {autoHideSeconds}s.");
+        if (startupUpdated)
+        {
+            SetStatus($"Saved settings. Retaining {retained} items. Auto-hide: {autoHideSeconds}s.");
+        }
+        else
+        {
+            SetStatus($"Saved settings, but failed to update startup app setting.");
+            RefreshStartupSettingUi();
+        }
     }
 
     private async void CheckUpdatesButton_Click(object sender, RoutedEventArgs e)

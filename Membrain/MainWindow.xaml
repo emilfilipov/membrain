@@ -532,6 +532,10 @@
             <TextBlock Text="Auto-Hide Seconds" Style="{StaticResource SettingLabel}" />
             <TextBox Name="AutoHideSecondsTextBox" Margin="0,4,0,10" Height="32" />
 
+            <CheckBox Name="StartWithWindowsCheckBox"
+                      Content="Start with Windows"
+                      Margin="0,0,0,10" />
+
             <Separator />
 
             <TextBlock Text="Updates" Foreground="{StaticResource TextPrimaryBrush}" FontSize="15" FontWeight="SemiBold" Margin="0,0,0,8" />
